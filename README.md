@@ -35,8 +35,7 @@ https://archive.ics.uci.edu/dataset/228/sms+spam+collection
 | data/train_v2.csv, data/test_v2.csv | Train and test (we use these) |
 | data/train_clean_v2.csv, data/test_clean_v2.csv | Text after cleaning |
 | data/train_prep_v2.csv, data/test_prep_v2.csv | Text after cleaning, stopwords and stemming |
-| data/train.csv, data/test.csv | Old split from week 1 (not used now) |
-| data/train_clean.csv, data/test_clean.csv | Old cleaning (not used now) |
+| data/train_v1.csv, data/test_v1.csv | Old split from week 1 (not used now) |
 
 ## How to run
 1. Install Python.
