@@ -36,14 +36,31 @@ https://archive.ics.uci.edu/dataset/228/sms+spam+collection
 | data/train_clean_v2.csv, data/test_clean_v2.csv | Text after cleaning |
 | data/train_prep_v2.csv, data/test_prep_v2.csv | Text after cleaning, stopwords and stemming |
 | data/train_v1.csv, data/test_v1.csv | Old split from week 1 (not used now) |
+| data/pred_nb.csv | What the Naive Bayes model said about each test message |
+| data/pred_lr.csv | What the Logistic Regression model said about each test message |
 
 ## How to run
 1. Install Python.
-2. Run: pip install pandas scikit-learn nltk
+2. Run: pip install pandas scikit-learn nltk matplotlib
 3. Open the notebooks in this order and click Run All in each one:
    - notebooks/01_load_and_split_v2.ipynb
    - notebooks/02_cleaning_v2.ipynb
    - notebooks/03_stopwords_stemming.ipynb
+   - notebooks/04_charts.ipynb
+   - notebooks/05_tfidf_similarity.ipynb
+   - notebooks/06_naive_bayes.ipynb
+   - notebooks/07_logistic_regression.ipynb
+   - notebooks/08_compare_errors.ipynb
+
+## Results so far
+All models use the same test file (data/test_v2.csv): 1,026 messages.
+
+| Model | Accuracy | Precision | Recall | F1 |
+|---|---|---|---|---|
+| Naive Bayes | 98.9 | 100.0 | 91.2 | 95.4 |
+| Logistic Regression | 99.1 | 97.5 | 95.2 | 96.4 |
+
+LSTM and BERT are not done yet.
 
 ## Team
 | Student ID | Student Name |
