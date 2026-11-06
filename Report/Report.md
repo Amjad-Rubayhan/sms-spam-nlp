@@ -1,6 +1,6 @@
 # SMS Spam Detection Report
 
-Version 1.2
+Version 1.3
 
 ## 1. Introduction
 
@@ -45,9 +45,11 @@ So far, we did these things:
 - We split the data into training (4,136) and testing (1,035).
 - We saved the two parts, so everyone in the team uses the same files.
 - Later, we checked the repeated messages again in a better way.
-  We found 43 more copies and made version 2 of the split.
+- We found 43 more copies and made version 2 of the split.
 - We studied what is different between ham and spam.
 - We cleaned the text, removed stopwords, and did stemming.
+- We turned the messages into numbers with TF-IDF and found messages that are alike.
+- We built two models (Naive Bayes and Logistic Regression), compared them, and looked at the messages they got wrong.
 
 Files we have now:
 - `data/SMSSpamCollection`: the original data file.
@@ -376,3 +378,304 @@ Our cleaning is not perfect:
   with a different phone number or prize. After cleaning,
   numbers become "longnumber", so they look the same.
   We kept them, because spam really repeats like this.
+
+## 4. Task 2: TF-IDF and Cosine Similarity
+
+### 4.1 What is TF-IDF?
+
+A model cannot read words, so we turn each message into numbers.
+TF-IDF gives every word in a message a weight:
+- TF: how many times the word is in this message.
+- IDF: how rare the word is in all the messages.
+
+A word gets a big weight if it is in this message
+but rare in the other messages.
+A word that is in almost every message, like "to", gets a small weight.
+
+We learn the words and the IDF from the train data only.
+Then we use them on the test data, without learning anything new.
+This is important: if we learn from the test data,
+the test is not a fair exam any more.
+
+### 4.2 Our setting for one-letter words
+
+By default, TF-IDF in sklearn drops words with only one letter.
+But we saw in Task 1 that one-letter words are very different
+in ham and spam: "i" is in 34.9% of ham and 5.0% of spam,
+and "ü" is only in ham.
+So we changed the setting to keep them.
+
+| Setting | Number of words |
+|---|---|
+| Default | 7,266 |
+| Ours | 7,303 |
+
+### 4.3 Example
+
+For this spam message:
+"please call amanda with regard to renewing or upgrading
+your current t mobile handset free of charge offer ends today
+tel longnumber subject to tandc"
+
+the words with the biggest weight are:
+amanda, regard, subject, renewing, upgrading (0.284 each),
+then current (0.248) and handset (0.243).
+
+Common words like "to" and "with" got a very small weight.
+
+### 4.4 New words in the test data
+
+TF-IDF only knows the words it learned from the train data.
+In the test data, 1,027 words out of 16,109 (6.4%) are new,
+and the model ignores them.
+This is normal, and it is one reason why a model is never perfect.
+
+### 4.5 Cosine similarity
+
+Cosine similarity tells how much two messages are alike.
+It gives a number between 0 and 1:
+- 1 means the two messages use the same words with the same weights.
+- 0 means they share no word.
+
+We compared every train message with every other train message:
+
+| | Average similarity |
+|---|---|
+| ham with ham | 0.022 |
+| spam with spam | 0.064 |
+| ham with spam | 0.017 |
+
+Spam messages are about three times more alike than ham messages.
+This is because spam comes from campaigns:
+the same message is sent many times with a different
+phone number or a different prize.
+
+### 4.6 Finding messages that are alike
+
+For each test message, we found the train message most like it.
+
+Example (spam):
+- Test: "WINNER!! As a valued network customer you have been
+  selected to receivea £900 prize reward"
+- Most alike in train (0.642): "WINNER! As a valued network customer
+  you hvae been selected to receive a £900 re..."
+
+The two messages are the same template.
+One of them even has a spelling mistake ("hvae"),
+but TF-IDF still found it.
+
+Example (ham):
+- Test: "sir, you will receive the account no another 1hr time.
+  Sorry for the delay."
+- Most alike in train (0.422): "Sorry for the delay. Yes masters"
+
+Then we checked: does the most alike message have the same label?
+
+| | Same label |
+|---|---|
+| All test messages | 98.4% |
+| Only spam | 89.6% |
+| Only ham | 99.7% |
+
+The average best similarity is 0.642 for spam and 0.390 for ham.
+So a spam message almost always finds a close twin in the train data,
+but a ham message does not.
+
+This also shows that TF-IDF alone is already useful for our problem.
+
+## 5. Task 3: Naive Bayes and Logistic Regression
+
+### 5.1 How we chose the settings
+
+We must not choose the settings by looking at the test result.
+If we do that, we pick what works on the test,
+and the test is not a fair exam any more.
+
+So we used cross-validation on the train data:
+we cut the train data into 5 parts, train on 4 parts and test on 1,
+and we repeat this 5 times. Then we take the average.
+The test data is used one time only, at the end.
+
+We also used F1 and not accuracy to choose,
+because our data has much more ham than spam.
+
+### 5.2 Naive Bayes
+
+Naive Bayes learns how often each word is in ham and in spam.
+For a new message, it asks: is this group of words
+more like ham or more like spam?
+
+We tried our three text versions and five values of alpha.
+Alpha is a small number the model adds to every word count,
+so a word it never saw does not get a probability of zero.
+
+Best results in the cross-validation:
+
+| Text | alpha | F1 |
+|---|---|---|
+| clean_text | 0.05 | 93.5 |
+| stop_text | 0.05 | 93.4 |
+| stop_text | 0.10 | 93.3 |
+
+The three text versions gave almost the same result.
+But alpha mattered a lot: with alpha = 1.0 the F1 was only 79.3,
+and with alpha = 0.05 it was 93.5.
+
+Result on the test data (clean_text, alpha = 0.05):
+
+| | Said ham | Said spam |
+|---|---|---|
+| True ham | 901 | 0 |
+| True spam | 11 | 114 |
+
+- Accuracy: 98.9
+- Precision: 100.0
+- Recall: 91.2
+- F1: 95.4
+
+Naive Bayes never sent a normal message to the spam box,
+but it missed 11 spam messages.
+
+### 5.3 Logistic Regression
+
+Logistic Regression gives each word a weight.
+A positive weight pushes the message to spam,
+a negative weight pushes it to ham.
+It adds the weights of all the words and decides.
+
+We tried our three text versions, three values of C,
+and two values of class_weight:
+- C: how free the model is. A big C lets the weights grow.
+- class_weight: with "balanced", the model gives more importance
+  to spam messages, because they are fewer.
+
+Best results in the cross-validation:
+
+| Text | C | class_weight | F1 |
+|---|---|---|---|
+| stem_text | 100 | balanced | 96.0 |
+| clean_text | 10 | balanced | 95.9 |
+| stop_text | 10 | balanced | 95.9 |
+
+Every row with "balanced" was better than every row without it.
+So giving more importance to the smaller class really helped.
+
+Result on the test data (stem_text, C = 100, balanced):
+
+| | Said ham | Said spam |
+|---|---|---|
+| True ham | 898 | 3 |
+| True spam | 6 | 119 |
+
+- Accuracy: 99.1
+- Precision: 97.5
+- Recall: 95.2
+- F1: 96.4
+
+### 5.4 Which words matter most?
+
+Logistic Regression can show us its weights.
+The words that push most to spam are:
+
+| Word | Weight |
+|---|---|
+| longnumber | 29.01 |
+| url | 16.86 |
+| pence | 13.37 |
+| pounds | 13.11 |
+| txt | 10.59 |
+| repli (reply) | 8.40 |
+
+The words that push most to ham are:
+
+| Word | Weight |
+|---|---|
+| hiddeninfo | -6.80 |
+| i | -6.35 |
+| my | -5.63 |
+| that | -4.85 |
+| happyface | -4.62 |
+
+This is an important result for us.
+The four strongest spam words (longnumber, url, pence, pounds)
+and two of the strongest ham words (hiddeninfo, happyface)
+are words that we made ourselves in Task 1.
+If we had deleted the numbers, the prices and the faces,
+the model would have lost its best signs.
+
+### 5.5 Comparing the two models
+
+| Model | Accuracy | Precision | Recall | F1 |
+|---|---|---|---|---|
+| Naive Bayes | 98.9 | 100.0 | 91.2 | 95.4 |
+| Logistic Regression | 99.1 | 97.5 | 95.2 | 96.4 |
+| Always say "ham" | 87.8 | 0.0 | 0.0 | 0.0 |
+
+We added a very simple model that always says "ham".
+It gets 87.8% accuracy without doing anything.
+This is why accuracy alone is not enough for our data.
+
+Logistic Regression is better on F1 (96.4 against 95.4).
+But the two models make different mistakes:
+- Naive Bayes is very careful. It never sent a normal message
+  to the spam box, but it missed 11 spam messages.
+- Logistic Regression catches more spam (it missed only 6),
+  but it sent 3 normal messages to the spam box.
+
+For a telecom company, sending a normal message to the spam box
+is usually worse than letting one spam message pass.
+So the company must choose:
+Naive Bayes if no false alarm is allowed,
+Logistic Regression if catching more spam is more important.
+
+The two models agree on 1,018 messages out of 1,026,
+and disagree on only 8.
+
+### 5.6 Error analysis
+
+The spam messages that Logistic Regression missed (6 messages)
+were all missed by Naive Bayes too. So they are hard for both.
+
+The six messages:
+- "TBS/PERSOLVO. been chasing us since Sept for£38 definitely not paying now..."
+- "Do you ever notice that when you're driving, anyone going slower than you..."
+- "Would you like to see my XXX pics they are so hot..."
+- "Burger King - Wanna play footy at a top stadium?..."
+- "LIFE has never been this much fun and great until you came in..."
+- "Sorry I missed your call let's talk when you have the time. I'm on 07090201529"
+
+Why they are hard:
+- They do not have the usual spam signs.
+  There is no price, no £ sign and no website.
+- Some of them look like a normal message between friends
+  ("Sorry I missed your call...", "LIFE has never been this much fun...").
+- They are a little shorter than normal spam
+  (132 characters against 140 on average).
+- The models were not close to the right answer:
+  the highest probability of spam on a missed message
+  was only 0.494 for Naive Bayes and 0.292 for Logistic Regression.
+  So this is not a small problem of a threshold.
+
+The three false alarms of Logistic Regression:
+- "Hi, Mobile no. `&lt;#&gt;` has added you in their contact list on
+  www.fullonsms.com It s a great place to send free sms to people"
+  (probability 0.992). This message really has a website and the word "free",
+  so the mistake is understandable.
+- "Glad to see your reply." (0.601) and
+  "Are you free now?can i call now?" (0.544).
+  These are short messages with words that are common in spam
+  ("reply", "free", "call"). With few words,
+  one or two spam words are enough to change the answer.
+
+### 5.7 A check on repeated messages
+
+In Task 1 we said that 4 test messages have the same clean text
+as a message in the train data.
+They are not copies: they are the same spam template
+with a different phone number.
+
+We checked if these 4 messages make our result look better than it is.
+Both models got all 4 right.
+If we remove them, the F1 goes from 95.4 to 95.2 for Naive Bayes,
+and from 96.4 to 96.2 for Logistic Regression.
+So the change is very small, and our result is not inflated.
