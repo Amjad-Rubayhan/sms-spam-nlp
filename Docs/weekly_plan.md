@@ -1,5 +1,5 @@
 # Weekly Plan
-Version 1.1
+Version 1.2
 
 Every week, we write here what we did and who did it.
 
@@ -46,4 +46,24 @@ Files from Week 3:
 - `data/train_prep_v2.csv` and `data/test_prep_v2.csv`
 - `report/report.md` and the charts in `report/`
 - `README.md`
+- `docs/weekly_plan.md`
+
+## Week 4 (2 - 8 Nov)
+
+This is the work we did in Week 4.
+
+| Student ID | Name | What he did |
+|---|---|---|
+| S230013941 | Abdullah Alshubayli | Made TF-IDF and cosine similarity (Task 2) |
+| S220045072 | Mohammed Baaqil | Made the Naive Bayes model |
+| S230008796 | Abdulrahman Alrimi | Made the Logistic Regression model |
+| S220008217 | Amjad Rubayhan | Compared the models, looked at the errors, and updated the report |
+
+Files from Week 4:
+- `notebooks/05_tfidf_similarity.ipynb`
+- `notebooks/06_naive_bayes.ipynb`
+- `notebooks/07_logistic_regression.ipynb`
+- `notebooks/08_compare_errors.ipynb`
+- `data/pred_nb.csv` and `data/pred_lr.csv`
+- `report/report.md`
 - `docs/weekly_plan.md`
