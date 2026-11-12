@@ -1,0 +1,4 @@
+model,parameters,epochs,precision,recall,f1
+Simple LSTM,242113,5,88.5,92.0,90.2
+Bidirectional LSTM,250465,7,96.8,90.0,93.3
+Stacked LSTM,250433,6,97.8,87.0,92.1
