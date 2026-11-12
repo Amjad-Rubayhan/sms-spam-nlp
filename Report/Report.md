@@ -1,6 +1,6 @@
 # SMS Spam Detection Report
 
-Version 1.3
+Version 1.4
 
 ## 1. Introduction
 
@@ -30,9 +30,12 @@ Our plan has these steps:
 - Build more advanced models.
 - Compare all the models and choose the best one.
 
-This version of the report covers the first part only:
+This version of the report covers the first four parts:
 how we looked at the data, fixed problems in it,
-and prepared the text for the models (Task 1).
+prepared the text for the models (Task 1),
+turned the messages into numbers (Task 2),
+built two simple models (Task 3),
+and built an LSTM model (Task 4).
 We will add the other parts when we finish them.
 
 So far, we did these things:
@@ -50,6 +53,7 @@ So far, we did these things:
 - We cleaned the text, removed stopwords, and did stemming.
 - We turned the messages into numbers with TF-IDF and found messages that are alike.
 - We built two models (Naive Bayes and Logistic Regression), compared them, and looked at the messages they got wrong.
+- We built an LSTM model, tried two other types of LSTM, and compared the LSTM with the first two models.
 
 Files we have now:
 - `data/SMSSpamCollection`: the original data file.
@@ -59,11 +63,26 @@ Files we have now:
 - `data/train_clean_v2.csv` and `data/test_clean_v2.csv`: the text after cleaning.
 - `data/train_prep_v2.csv` and `data/test_prep_v2.csv`: the text after cleaning,
   stopwords and stemming.
+- `data/pred_nb.csv` and `data/pred_lr.csv`: the answers of Naive Bayes
+  and Logistic Regression on the test messages.
+- `data/pred_lstm.csv`: the answers of the LSTM on the test messages.
+- `data/lstm_history.csv`: loss and accuracy of the LSTM after each epoch.
+- `data/lstm_variants.csv`: results of the three LSTM types on the validation data.
+- `data/model_comparison.csv`: the results of all models.
+- `data/all_predictions.csv`: the answers of all models for each test message.
 - `notebooks/01_load_and_split.ipynb`: our notebook from week 1.
 - `notebooks/01_load_and_split_v2.ipynb`: our notebook for version 2.
 - `notebooks/02_cleaning_v2.ipynb`: cleaning the text.
 - `notebooks/03_stopwords_stemming.ipynb`: stopwords and stemming.
-- `notebooks/04_charts.ipynb`: the charts in this report.
+- `notebooks/04_charts.ipynb`: the charts for Task 1.
+- `notebooks/05_tfidf_similarity.ipynb`: TF-IDF and cosine similarity.
+- `notebooks/06_naive_bayes.ipynb`: Naive Bayes.
+- `notebooks/07_logistic_regression.ipynb`: Logistic Regression.
+- `notebooks/08_compare_errors.ipynb`: comparing the two models and their mistakes.
+- `notebooks/09_lstm.ipynb`: the LSTM model.
+- `notebooks/10_lstm_variants.ipynb`: Bidirectional and Stacked LSTM.
+- `notebooks/11_lstm_errors.ipynb`: comparing the LSTM with the other models.
+- `notebooks/12_lstm_charts.ipynb`: the charts for Task 4.
 
 ## 2. Data and Setup
 
@@ -679,3 +698,271 @@ Both models got all 4 right.
 If we remove them, the F1 goes from 95.4 to 95.2 for Naive Bayes,
 and from 96.4 to 96.2 for Logistic Regression.
 So the change is very small, and our result is not inflated.
+
+## 6. Task 4: LSTM
+
+### 6.1 What is an LSTM?
+
+Naive Bayes and Logistic Regression look at a message
+as a bag of words. They do not care about the order of the words.
+An LSTM reads the message word by word, from the first word to the last.
+It keeps a memory of what it read before,
+and it decides what to keep and what to forget.
+So it can use the order of the words.
+
+We ran this task on Google Colab with a GPU
+(TensorFlow 2.21.0 and Keras).
+
+### 6.2 Preparing the text for the LSTM
+
+We used the `clean_text` column, the same text as in Task 1.
+
+1. Words to numbers. We gave each word in the train data a number.
+   The most common words get the small numbers.
+   Number 1 is for a word we do not know ("unknown"),
+   and number 0 is for filling empty places (padding).
+   We made the list from the train data only.
+   The train data has 7,303 different words.
+   With the unknown word and the padding, the list has 7,305 items.
+   A word in the test data that is not in the list gets the number 1.
+2. Same length. The LSTM needs messages with the same length.
+   We chose 40 words. This covers 98.2% of the train messages.
+   Messages with fewer words get zeros at the end.
+   Messages with more words are cut after the 40th word.
+
+   | Length | Messages covered |
+   |---|---|
+   | 30 words | 92.4% |
+   | 40 words | 98.2% |
+   | 50 words | 98.9% |
+   | 60 words | 99.3% |
+   | 80 words | 99.8% |
+
+   The average train message has 15.6 words, and the longest has 189.
+3. Labels. spam = 1 and ham = 0.
+4. Validation data. We took a part of the train data
+   to watch the model while it learns.
+   We kept the same share of spam in both parts.
+
+   | Part | Messages | Spam |
+   |---|---|---|
+   | Fit (the model learns from it) | 3,281 | 401 |
+   | Validation (we only check) | 821 | 100 |
+
+   The test data was not used until the end.
+
+### 6.3 The model
+
+The model has four layers:
+
+| Layer | What it does | Size | Parameters |
+|---|---|---|---|
+| Embedding | gives each word a vector of numbers | 32 numbers per word | 233,760 |
+| LSTM | reads the words one by one | 32 units | 8,320 |
+| Dropout | turns off 30% of the numbers while training | 0.3 | 0 |
+| Dense (sigmoid) | gives one number between 0 and 1 | 1 | 33 |
+
+The model has 242,113 parameters in total.
+Most of them (233,760) are in the Embedding layer,
+because the list has 7,305 items and each item has 32 numbers.
+The Embedding vectors are learned by the model itself.
+
+Settings:
+- Loss: binary crossentropy.
+- Optimizer: Adam.
+- Batch size: 32 messages.
+- Maximum epochs: 20.
+- Random seed: 42.
+
+For the output, a number of 0.5 or more means spam.
+
+### 6.4 When to stop training
+
+We did not choose the number of epochs by hand.
+We used early stopping: if the validation loss does not get better
+for 3 epochs, the training stops,
+and the model goes back to the weights of its best epoch.
+
+![Learning curves of the LSTM](chart5_lstm_learning.png)
+
+| Epoch | Training loss | Validation loss | Validation accuracy |
+|---|---|---|---|
+| 1 | 0.3221 | 0.1440 | 96.7 |
+| 2 | 0.1071 | 0.1375 | 94.6 |
+| 3 | 0.0530 | 0.0771 | 98.3 |
+| 4 | 0.0208 | 0.0885 | 98.2 |
+| 5 | 0.0176 | 0.1521 | 96.8 |
+| 6 | 0.0311 | 0.0914 | 98.1 |
+
+- The best epoch was epoch 3 (validation loss 0.0771).
+- The training stopped after epoch 6, because epochs 4, 5 and 6
+  were not better than epoch 3.
+
+After epoch 3, the training loss went down to 0.0176 (epoch 5),
+but the validation loss went up (0.0885 and 0.1521).
+This is overfitting: the model starts to remember
+the train messages and not learn the general rule.
+
+We checked that early stopping really gave us the best epoch:
+after the training, the loss on the validation data was 0.0771.
+This is the same as the loss of epoch 3.
+
+### 6.5 Result on the test data
+
+We used the same test data as the other models (1,026 messages).
+This is the first time the LSTM saw the test data.
+
+| | Said ham | Said spam |
+|---|---|---|
+| True ham | 895 | 6 |
+| True spam | 5 | 120 |
+
+- Accuracy: 98.9
+- Precision: 95.2
+- Recall: 96.0
+- F1: 95.6
+
+The LSTM said "spam" for 126 messages.
+We saved all its answers in `data/pred_lstm.csv`.
+
+### 6.6 Bidirectional and Stacked LSTM
+
+We tried two other types of LSTM:
+- Bidirectional: one LSTM reads the message from the first word
+  to the last, and another LSTM reads it from the last word
+  to the first. Then we join the two.
+- Stacked: two LSTM layers, one on top of the other.
+  The first layer gives an output for every word,
+  and the second layer reads these outputs.
+
+We used the same word numbers, the same length (40 words),
+the same validation data, the same settings and the same random seed.
+We compared the three types on the validation data (100 spam messages),
+not on the test data.
+
+![The three LSTM types](chart6_lstm_variants.png)
+
+| LSTM type | Parameters | Epochs | Best epoch | Precision | Recall | F1 |
+|---|---|---|---|---|---|---|
+| Simple | 242,113 | 5 | 2 | 88.5 | 92.0 | 90.2 |
+| Bidirectional | 250,465 | 7 | 4 | 96.8 | 90.0 | 93.3 |
+| Stacked | 250,433 | 6 | 3 | 97.8 | 87.0 | 92.1 |
+
+What we see:
+- The Bidirectional LSTM has the best F1 (93.3).
+- The Simple LSTM has the best recall (92.0), but the lowest precision (88.5).
+  It calls more normal messages spam.
+- The Bidirectional and Stacked LSTM have about 8,000 more parameters.
+
+Two things we must say:
+- The Simple LSTM in this table is a new training run.
+  It is not the same run as the model in 6.3 to 6.5.
+  It stopped at epoch 5 and the first one stopped at epoch 6
+  (see 6.9). So the numbers of the Simple LSTM can change.
+- The validation data has only 100 spam messages.
+  The difference in recall between the three types is 2 or 5 messages.
+  So part of the difference between the types can be just chance.
+
+The model in 6.3 to 6.5 is the Simple LSTM.
+So the test result in 6.5 is not from the best type
+on the validation data.
+We did not test the Bidirectional LSTM on the test data.
+
+### 6.7 Comparing with Naive Bayes and Logistic Regression
+
+![All models](chart7_all_models.png)
+
+| Model | Accuracy | Precision | Recall | F1 | Ham called spam | Spam missed |
+|---|---|---|---|---|---|---|
+| Naive Bayes | 98.9 | 100.0 | 91.2 | 95.4 | 0 | 11 |
+| Logistic Regression | 99.1 | 97.5 | 95.2 | 96.4 | 3 | 6 |
+| LSTM | 98.9 | 95.2 | 96.0 | 95.6 | 6 | 5 |
+
+What we see:
+- Logistic Regression has the best F1 (96.4).
+  The LSTM (95.6) is a little better than Naive Bayes (95.4).
+- The LSTM misses the fewest spam messages (5),
+  but it has the most false alarms (6).
+- Naive Bayes has no false alarms, but it misses the most spam (11).
+
+The three models are very close.
+The test data has only 125 spam messages,
+so one message changes the recall by 0.8 points.
+We cannot say that one model is clearly better than the others.
+The LSTM, which is the most complex model,
+did not win against Logistic Regression.
+
+Do the three models agree?
+- All three agree on 1,010 messages out of 1,026.
+  They disagree on 16 messages.
+- 4 spam messages were missed by all three models.
+  So these are hard for every model we have.
+- The LSTM missed 5 spam messages: these 4, and one more.
+  The one more is "RECPT 1/3. You have ordered a Ringtone.
+  Your order is being processed...".
+  Naive Bayes and Logistic Regression got this one right.
+- The LSTM got 2 spam messages right that Naive Bayes and
+  Logistic Regression both missed:
+  "TBS/PERSOLVO. been chasing us since Sept for£38..." and
+  "Burger King - Wanna play footy at a top stadium?...".
+- The LSTM got "Glad to see your reply." and
+  "Are you free now?can i call now?" right.
+  Logistic Regression called them spam (see 5.6).
+
+### 6.8 Error analysis
+
+The LSTM has 6 false alarms (normal messages called spam).
+Five of them were called spam only by the LSTM.
+One of them was also called spam by Logistic Regression
+(the message with the website www.fullonsms.com, see 5.6).
+
+The six messages (the beginning of each):
+- "Ee msg na poortiyagi odalebeku: Hanumanji 7 name 1-Hanuman..."
+- "Hello-/@drivby-:0quit edrunk sorry iff pthis makes no senrd..."
+- "Camera quite good, 10.1mega pixels, 3optical and 5digital dooms..."
+- "Please reserve ticket on saturday eve from chennai to thirunelvali..."
+- "Hi, Mobile no. `&lt;#&gt;` has added you in their contact list on www.fullonsms.com..."
+- "We are pleased to inform that your application for Airtel Broadband is processed successfully..."
+
+We think the false alarms may be messages with strange or rare words.
+So we counted the words of each message that are not in the train data:
+
+| Messages | Words that are new |
+|---|---|
+| The 6 false alarms | 25.0% |
+| All ham messages in the test data | 6.3% |
+
+The false alarms have four times more new words.
+The LSTM gives all new words the same number (unknown).
+So when a message has many new words, the LSTM knows less about it.
+This can be a reason for these mistakes.
+It is only a sign, because we have only 6 messages,
+and we did not test this in another way.
+
+### 6.9 Results can change a little
+
+Keras can give different results in different sessions,
+even when we fix the random seed.
+We saw this with the Simple LSTM.
+It has the same code and the same seed in two notebooks:
+
+| Notebook | Epochs | Best epoch |
+|---|---|---|
+| 09_lstm | 6 | 3 |
+| 10_lstm_variants | 5 | 2 |
+
+So if someone runs the notebooks again, the numbers can change a little.
+The numbers in this report are from the runs saved in our files.
+
+### 6.10 Limits
+
+- We have only 125 spam messages in the test data,
+  so small differences between models are not strong proofs.
+- We have only 100 spam messages in the validation data,
+  so the comparison of the three LSTM types is not strong either.
+- The LSTM list of words comes from 4,102 train messages only.
+  Words that are not in the list are all treated the same.
+- Messages longer than 40 words are cut (1.8% of the train messages),
+  so the LSTM does not see the end of them.
+- The LSTM is slower and harder to explain than Logistic Regression,
+  which can show us the weight of each word.
