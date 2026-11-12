@@ -1,5 +1,5 @@
 # Weekly Plan
-Version 1.2
+Version 1.3
 
 Every week, we write here what we did and who did it.
 
@@ -66,4 +66,31 @@ Files from Week 4:
 - `notebooks/08_compare_errors.ipynb`
 - `data/pred_nb.csv` and `data/pred_lr.csv`
 - `report/report.md`
+- `docs/weekly_plan.md`
+
+## Week 5 (9 - 15 Nov)
+
+This week we worked on Task 4 (LSTM).
+We ran the LSTM notebooks on Google Colab.
+We did this work early, before Week 5 started,
+so the dates of these commits on GitHub are before 9 Nov.
+
+| Student ID | Name | What he did |
+|---|---|---|
+| S220008217 | Amjad Rubayhan | Prepared the text for the LSTM, built and trained the LSTM, and saved its answers |
+| S220045072 | Mohammed Baaqil | Tried the Bidirectional and Stacked LSTM, compared them on the validation data, and updated the README |
+| S230008796 | Abdulrahman Alrimi | Compared the LSTM with Naive Bayes and Logistic Regression, looked at the errors, and updated this weekly plan |
+| S230013941 | Abdullah Alshubayli | Made the learning curves and the charts of all models, and updated the report (version 1.4) |
+
+Files from Week 5:
+- `notebooks/09_lstm.ipynb`
+- `notebooks/10_lstm_variants.ipynb`
+- `notebooks/11_lstm_errors.ipynb`
+- `notebooks/12_lstm_charts.ipynb`
+- `data/pred_lstm.csv` and `data/lstm_history.csv`
+- `data/lstm_variants.csv`
+- `data/model_comparison.csv` and `data/all_predictions.csv`
+- `report/report.md` and the charts `chart5_lstm_learning.png`,
+  `chart6_lstm_variants.png` and `chart7_all_models.png`
+- `README.md`
 - `docs/weekly_plan.md`
