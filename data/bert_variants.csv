@@ -1,0 +1,4 @@
+model,parameters,epochs,best_epoch,precision,recall,f1
+BERT lr 0.00002,109483778,4,1,98.9,93.0,95.9
+BERT lr 0.00005,109483778,5,2,96.9,94.0,95.4
+DistilBERT lr 0.00002,66955010,6,3,98.9,93.0,95.9
