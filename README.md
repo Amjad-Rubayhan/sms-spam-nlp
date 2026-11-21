@@ -15,7 +15,7 @@ https://archive.ics.uci.edu/dataset/228/sms+spam+collection
 - Train: 4,102 messages. Test: 1,026 messages.
 - All our models use the same test messages (data/test_v2.csv).
 
-## What we will do
+## What we did
 1. Clean the text
 2. TF-IDF and cosine similarity
 3. Naive Bayes and Logistic Regression
@@ -39,14 +39,18 @@ https://archive.ics.uci.edu/dataset/228/sms+spam+collection
 | data/pred_nb.csv | What the Naive Bayes model said about each test message |
 | data/pred_lr.csv | What the Logistic Regression model said about each test message |
 | data/pred_lstm.csv | What the LSTM model said about each test message |
+| data/pred_bert.csv | What the BERT model said about each test message |
 | data/lstm_history.csv | Loss and accuracy of the LSTM after each epoch |
+| data/bert_history.csv | Loss and accuracy of BERT after each epoch |
 | data/lstm_variants.csv | Results of the three LSTM types on the validation data |
-| data/model_comparison.csv | Accuracy, precision, recall and F1 of all models |
-| data/all_predictions.csv | The answers of all models for each test message |
+| data/bert_variants.csv | Results of the three BERT settings on the validation data |
+| data/model_comparison_final.csv | Accuracy, precision, recall and F1 of all four models |
+| data/all_predictions_final.csv | The answers of all four models for each test message |
+| data/model_comparison.csv, data/all_predictions.csv | Same as the two files above, but from week 5, before BERT (three models) |
 
 ## How to run
 1. Install Python.
-2. Run: pip install pandas scikit-learn nltk matplotlib tensorflow
+2. Run: pip install pandas scikit-learn nltk matplotlib tensorflow torch transformers
 3. Open the notebooks in this order and click Run All in each one:
    - notebooks/01_load_and_split_v2.ipynb
    - notebooks/02_cleaning_v2.ipynb
@@ -60,20 +64,27 @@ https://archive.ics.uci.edu/dataset/228/sms+spam+collection
    - notebooks/10_lstm_variants.ipynb
    - notebooks/11_lstm_errors.ipynb
    - notebooks/12_lstm_charts.ipynb
+   - notebooks/13_bert.ipynb
+   - notebooks/14_bert_variants.ipynb
+   - notebooks/15_final_comparison.ipynb
+   - notebooks/16_bert_charts.ipynb
 
 Notes:
-- We ran notebooks 09 and 10 on Google Colab. If you run them again,
-  the numbers can change a little, because the LSTM starts with random numbers.
-- Notebooks 11 and 12 use the saved files in the data folder.
+- We ran notebooks 09, 10, 13 and 14 on Google Colab with a GPU.
+  If you run them again, the numbers can change a little,
+  because the models start with random numbers.
+- BERT needs internet, because the notebook downloads the model.
+- Notebooks 11, 12, 15 and 16 use the saved files in the data folder.
 
-## Results so far
-All models use the same test file (data/test_v2.csv): 1,026 messages.
+## Results
+All models use the same test file (data/test_v2.csv): 1,026 messages (125 spam).
 
 | Model | Accuracy | Precision | Recall | F1 |
 |---|---|---|---|---|
 | Naive Bayes | 98.9 | 100.0 | 91.2 | 95.4 |
 | Logistic Regression | 99.1 | 97.5 | 95.2 | 96.4 |
 | LSTM | 98.9 | 95.2 | 96.0 | 95.6 |
+| BERT | 99.0 | 98.3 | 93.6 | 95.9 |
 
 Mistakes on the test data:
 
@@ -82,8 +93,14 @@ Mistakes on the test data:
 | Naive Bayes | 0 | 11 |
 | Logistic Regression | 3 | 6 |
 | LSTM | 6 | 5 |
+| BERT | 2 | 8 |
 
-We also tried three LSTM types. We compared them on the validation data
+The models are very close, and no model is the best in everything.
+The test data has only 125 spam messages, so one message changes the recall by 0.8 points.
+All four models agree on 1,007 messages out of 1,026.
+3 spam messages were missed by all four models.
+
+We also tried other settings. We compared them on the validation data
 (a part of the train data), not on the test data.
 
 | LSTM type | F1 on validation |
@@ -92,7 +109,11 @@ We also tried three LSTM types. We compared them on the validation data
 | Bidirectional | 93.3 |
 | Stacked | 92.1 |
 
-BERT is not done yet.
+| BERT setting | F1 on validation |
+|---|---|
+| BERT, learning rate 0.00002 | 95.9 |
+| BERT, learning rate 0.00005 | 95.4 |
+| DistilBERT, learning rate 0.00002 | 95.9 |
 
 ## Team
 | Student ID | Student Name |
