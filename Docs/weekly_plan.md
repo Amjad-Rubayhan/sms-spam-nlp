@@ -1,5 +1,5 @@
 # Weekly Plan
-Version 1.3
+Version 1.4
 
 Every week, we write here what we did and who did it.
 
@@ -92,5 +92,30 @@ Files from Week 5:
 - `data/model_comparison.csv` and `data/all_predictions.csv`
 - `report/report.md` and the charts `chart5_lstm_learning.png`,
   `chart6_lstm_variants.png` and `chart7_all_models.png`
+- `README.md`
+- `docs/weekly_plan.md`
+
+## Week 6 (16 - 22 Nov)
+
+This week we worked on Task 5 (BERT).
+We ran the BERT notebooks on Google Colab.
+
+| Student ID | Name | What he did |
+|---|---|---|
+| S220008217 | Amjad Rubayhan | Fine-tuned BERT (`bert-base-uncased`) and saved its answers and its training history |
+| S220045072 | Mohammed Baaqil | Tried two other BERT settings (a bigger learning rate and DistilBERT), compared them on the validation data, and updated the README |
+| S230008796 | Abdulrahman Alrimi | Compared all four models, looked at the messages where they disagree, and updated this weekly plan |
+| S230013941 | Abdullah Alshubayli | Made the learning curves and the charts of BERT and of all four models, and updated the report (version 2.0) |
+
+Files from Week 6:
+- `notebooks/13_bert.ipynb`
+- `notebooks/14_bert_variants.ipynb`
+- `notebooks/15_final_comparison.ipynb`
+- `notebooks/16_bert_charts.ipynb`
+- `data/pred_bert.csv` and `data/bert_history.csv`
+- `data/bert_variants.csv`
+- `data/model_comparison_final.csv` and `data/all_predictions_final.csv`
+- `report/report.md` and the charts `chart8_bert_learning.png`,
+  `chart9_bert_variants.png` and `chart10_all_models.png`
 - `README.md`
 - `docs/weekly_plan.md`
