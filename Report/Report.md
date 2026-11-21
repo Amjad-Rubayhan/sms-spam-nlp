@@ -1,6 +1,6 @@
 # SMS Spam Detection Report
 
-Version 1.4
+Version 2.0
 
 ## 1. Introduction
 
@@ -30,13 +30,14 @@ Our plan has these steps:
 - Build more advanced models.
 - Compare all the models and choose the best one.
 
-This version of the report covers the first four parts:
+This version of the report covers all five parts:
 how we looked at the data, fixed problems in it,
 prepared the text for the models (Task 1),
 turned the messages into numbers (Task 2),
 built two simple models (Task 3),
-and built an LSTM model (Task 4).
-We will add the other parts when we finish them.
+built an LSTM model (Task 4),
+and fine-tuned a BERT model (Task 5).
+At the end, we compare all four models and give a recommendation.
 
 So far, we did these things:
 - We looked at the raw file and understood how it is written.
@@ -54,6 +55,7 @@ So far, we did these things:
 - We turned the messages into numbers with TF-IDF and found messages that are alike.
 - We built two models (Naive Bayes and Logistic Regression), compared them, and looked at the messages they got wrong.
 - We built an LSTM model, tried two other types of LSTM, and compared the LSTM with the first two models.
+- We fine-tuned a BERT model, tried two other settings, and compared all four models on the same test data.
 
 Files we have now:
 - `data/SMSSpamCollection`: the original data file.
@@ -66,10 +68,15 @@ Files we have now:
 - `data/pred_nb.csv` and `data/pred_lr.csv`: the answers of Naive Bayes
   and Logistic Regression on the test messages.
 - `data/pred_lstm.csv`: the answers of the LSTM on the test messages.
+- `data/pred_bert.csv`: the answers of BERT on the test messages.
 - `data/lstm_history.csv`: loss and accuracy of the LSTM after each epoch.
+- `data/bert_history.csv`: loss and accuracy of BERT after each epoch.
 - `data/lstm_variants.csv`: results of the three LSTM types on the validation data.
-- `data/model_comparison.csv`: the results of all models.
-- `data/all_predictions.csv`: the answers of all models for each test message.
+- `data/bert_variants.csv`: results of the three BERT settings on the validation data.
+- `data/model_comparison_final.csv`: the results of the four models.
+- `data/all_predictions_final.csv`: the answers of the four models for each test message.
+- `data/model_comparison.csv` and `data/all_predictions.csv`: the same two files from
+  Week 5, before BERT (three models).
 - `notebooks/01_load_and_split.ipynb`: our notebook from week 1.
 - `notebooks/01_load_and_split_v2.ipynb`: our notebook for version 2.
 - `notebooks/02_cleaning_v2.ipynb`: cleaning the text.
@@ -83,6 +90,10 @@ Files we have now:
 - `notebooks/10_lstm_variants.ipynb`: Bidirectional and Stacked LSTM.
 - `notebooks/11_lstm_errors.ipynb`: comparing the LSTM with the other models.
 - `notebooks/12_lstm_charts.ipynb`: the charts for Task 4.
+- `notebooks/13_bert.ipynb`: the BERT model.
+- `notebooks/14_bert_variants.ipynb`: other BERT settings.
+- `notebooks/15_final_comparison.ipynb`: comparing the four models.
+- `notebooks/16_bert_charts.ipynb`: the charts for Task 5.
 
 ## 2. Data and Setup
 
@@ -807,6 +818,9 @@ We checked that early stopping really gave us the best epoch:
 after the training, the loss on the validation data was 0.0771.
 This is the same as the loss of epoch 3.
 
+The training of the 6 epochs took about 11 seconds on the GPU
+(the sum of the epoch times that Keras printed).
+
 ### 6.5 Result on the test data
 
 We used the same test data as the other models (1,026 messages).
@@ -966,3 +980,310 @@ The numbers in this report are from the runs saved in our files.
   so the LSTM does not see the end of them.
 - The LSTM is slower and harder to explain than Logistic Regression,
   which can show us the weight of each word.
+
+## 7. Task 5: BERT
+
+### 7.1 What is BERT?
+
+BERT is a language model that was already trained
+on a very large amount of text.
+It learned the language by guessing words that were hidden in a sentence.
+To guess a hidden word, it looks at the words on the left
+and on the right of it.
+So BERT gets a good understanding of how words are used.
+
+We do not train BERT from the start. We fine-tune it:
+we add one small new layer on top of it,
+and we train the whole model a little more on our messages.
+The new layer gives two numbers: one for ham and one for spam.
+It starts with random numbers, and the training teaches it.
+
+We used `bert-base-uncased` ("uncased" means that all letters are small letters).
+It has 12 layers and 109,483,778 parameters.
+The LSTM in Task 4 has 242,113 parameters,
+so BERT is about 450 times bigger.
+
+We ran this task on Google Colab with a T4 GPU
+(PyTorch 2.14.1 and transformers 5.22.1).
+We wrote a simple training loop ourselves.
+
+### 7.2 Preparing the text for BERT
+
+BERT does not use our cleaned text. It reads the raw message
+(the `text` column), with capital letters, numbers and symbols.
+We use the same rows as before (the same train and test messages).
+
+BERT has its own tokenizer. When it does not know a word,
+it cuts the word into small pieces.
+For example, "renewing" becomes "renew" and "##ing",
+and "T-Mobile" becomes "t", "-" and "mobile".
+
+How long is a message for BERT? We counted the tokens
+in the train messages (the average is 24.9, the longest has 238):
+
+| Length | Messages covered |
+|---|---|
+| 64 tokens | 98.4% |
+| 96 tokens | 99.5% |
+| 128 tokens | 99.9% |
+| 160 tokens | 99.9% |
+
+We chose 64 tokens. The coverage (98.4%) is almost the same
+as the LSTM (98.2%), so the comparison is fair.
+Short messages get empty places at the end,
+and long messages are cut after 64 tokens.
+
+We took the same validation part from the train data as the LSTM,
+with the same random seed (42):
+
+| Part | Messages | Spam |
+|---|---|---|
+| Fit (the model learns from it) | 3,281 | 401 |
+| Validation (we only check) | 821 | 100 |
+
+The numbers are the same as in the LSTM.
+So the BERT model and the LSTM learn from the same messages.
+
+### 7.3 Training
+
+Settings:
+- Optimizer: AdamW, with a small learning rate (0.00002),
+  because BERT is already trained and we only change it a little.
+- Batch size: 32 messages (103 batches in every epoch).
+- Maximum epochs: 10.
+- Early stopping: the same rule as the LSTM. If the validation loss does not get
+  better for 3 epochs, we stop and go back to the best epoch.
+- Random seed: 42.
+
+Before the training, we checked the model on the validation part.
+It was bad, as we expected, because the new layer was still random
+(loss 0.7321, accuracy 21.3%).
+
+![Learning curves of BERT](chart8_bert_learning.png)
+
+| Epoch | Training loss | Training accuracy | Validation loss | Validation accuracy |
+|---|---|---|---|---|
+| 1 | 0.1439 | 94.57 | 0.0446 | 99.03 |
+| 2 | 0.0265 | 99.45 | 0.0437 | 99.03 |
+| 3 | 0.0142 | 99.63 | 0.0506 | 98.90 |
+| 4 | 0.0064 | 99.82 | 0.0467 | 98.78 |
+| 5 | 0.0030 | 99.91 | 0.0631 | 98.90 |
+
+- The best epoch was epoch 2 (validation loss 0.0437).
+- The training stopped after epoch 5, because epochs 3, 4 and 5
+  were not better than epoch 2.
+
+BERT learned very fast: after one epoch, the validation accuracy was already 99.03%.
+After epoch 2, the training loss kept going down (to 0.0030),
+but the validation loss went up (to 0.0631).
+This is overfitting, like in the LSTM.
+Early stopping gave us the model from epoch 2.
+
+On the validation part, BERT is better than the LSTM:
+the best validation loss is 0.0437 for BERT and 0.0771 for the LSTM,
+and the accuracy is 99.0% against 98.3%.
+But this is the validation data, not the test data.
+
+The training of BERT (5 epochs) took about 3 minutes on the T4 GPU.
+
+### 7.4 Result on the test data
+
+We used the same test data as the other models (1,026 messages).
+
+| | Said ham | Said spam |
+|---|---|---|
+| True ham | 899 | 2 |
+| True spam | 8 | 117 |
+
+- Accuracy: 99.0
+- Precision: 98.3
+- Recall: 93.6
+- F1: 95.9
+
+BERT said "spam" for 119 messages.
+We saved all its answers in `data/pred_bert.csv`.
+
+### 7.5 Other BERT settings
+
+Like for the LSTM, we tried other settings:
+- A bigger learning rate (0.00005).
+- DistilBERT: a smaller and faster version of BERT.
+  It uses the same word list as BERT (we checked this).
+
+We trained each setting in the same way
+(the same data, the same rules, the same random seed),
+and we compared them on the validation part (100 spam messages).
+
+![The three BERT settings](chart9_bert_variants.png)
+
+| Setting | Parameters | Epochs | Best epoch | Precision | Recall | F1 |
+|---|---|---|---|---|---|---|
+| BERT, learning rate 0.00002 | 109,483,778 | 4 | 1 | 98.9 | 93.0 | 95.9 |
+| BERT, learning rate 0.00005 | 109,483,778 | 5 | 2 | 96.9 | 94.0 | 95.4 |
+| DistilBERT, learning rate 0.00002 | 66,955,010 | 6 | 3 | 98.9 | 93.0 | 95.9 |
+
+From the precision and the recall, we can count the mistakes on the validation part:
+
+| Setting | Spam found (of 100) | Ham called spam |
+|---|---|---|
+| BERT, learning rate 0.00002 | 93 | 1 |
+| BERT, learning rate 0.00005 | 94 | 3 |
+| DistilBERT, learning rate 0.00002 | 93 | 1 |
+
+What we see:
+- The three settings are very close. The difference is one or two messages.
+- The bigger learning rate found one more spam message,
+  but it called two more normal messages spam. So its F1 is lower.
+- DistilBERT gave the same result as BERT, with 39% fewer parameters.
+- We cannot say that one setting is better, because the validation
+  part has only 100 spam messages.
+
+Two things we must say:
+- The first setting is the same as the model in 7.3,
+  but it is a new training run. It stopped at epoch 4 (best epoch 1),
+  and the first run stopped at epoch 5 (best epoch 2).
+  So, like in the LSTM, the results change a little between runs (see 6.9).
+- The test result in 7.4 is from the setting with learning rate 0.00002.
+  On the validation part, this setting is tied for the best F1
+  (with DistilBERT). We did not test the other settings on the test data.
+
+### 7.6 Limits
+
+- We have only 125 spam messages in the test data,
+  and 100 in the validation data.
+- We tried only three settings for BERT.
+  We did not try other sizes, other lengths or other training rules.
+- BERT is big: the model file we downloaded is about 440 MB,
+  and the training needs a GPU.
+
+## 8. Final Comparison of the Four Models
+
+### 8.1 The results
+
+All four models were tested on the same 1,026 messages (125 spam).
+
+![All four models](chart10_all_models.png)
+
+| Model | Accuracy | Precision | Recall | F1 | Ham called spam | Spam missed |
+|---|---|---|---|---|---|---|
+| Naive Bayes | 98.9 | 100.0 | 91.2 | 95.4 | 0 | 11 |
+| Logistic Regression | 99.1 | 97.5 | 95.2 | 96.4 | 3 | 6 |
+| LSTM | 98.9 | 95.2 | 96.0 | 95.6 | 6 | 5 |
+| BERT | 99.0 | 98.3 | 93.6 | 95.9 | 2 | 8 |
+| Always say "ham" | 87.8 | 0.0 | 0.0 | 0.0 | 0 | 125 |
+
+What we see:
+- All four models are better than the simple model that always says "ham".
+- The F1 of the four models is between 95.4 and 96.4. They are very close.
+- Logistic Regression has the best F1 (96.4).
+- Naive Bayes is the only model with no false alarm.
+- The LSTM misses the fewest spam messages (5), but it has the most false alarms (6).
+- BERT is in the middle: 2 false alarms and 8 missed spam messages.
+- The most complex models (the LSTM and BERT) did not win against Logistic Regression.
+- The test data has only 125 spam messages, so one message changes
+  the recall by 0.8 points. We cannot say that one model is clearly the best.
+
+### 8.2 Do the four models agree?
+
+- All four agree on 1,007 messages out of 1,026.
+  They disagree on 19 messages.
+- 3 spam messages were missed by all four models:
+  - "Do you ever notice that when you're driving, anyone going slower than you..."
+  - "Would you like to see my XXX pics they are so hot they were nearly banned in the uk!"
+  - "Sorry I missed your call let's talk when you have the time. I'm on 07090201529"
+
+  They do not have the usual spam signs, and two of them look like
+  a normal message between people.
+- No normal message was called spam by all four models.
+- BERT is the only model that got "LIFE has never been this much fun and great
+  until you came in..." right. The other three models missed it.
+
+### 8.3 The mistakes of BERT
+
+BERT has 2 false alarms:
+- "Hi, Mobile no. `&lt;#&gt;` has added you in their contact list on
+  www.fullonsms.com ..." (three models called it spam).
+  It has a website and the word "free", so the mistake is understandable.
+- "staff.science.nus.edu.sg/~phyhcmk/teaching/pc1323":
+  a message with only a website address. Only BERT called it spam.
+
+BERT missed 8 spam messages: the 3 above and 5 more.
+- "TBS/PERSOLVO. been chasing us since Sept for£38..."
+- "RECPT 1/3. You have ordered a Ringtone. Your order is being processed..."
+- "Bought one ringtone and now getting texts costing 3 pound offering more tones etc"
+- "SMS. ac JSco: Energy is high, but u may not know where 2channel it..."
+- "Burger King - Wanna play footy at a top stadium?..."
+
+The LSTM got 4 of these 5 right (only "RECPT 1/3..." was missed).
+
+BERT did not call normal the 5 messages that only the LSTM called spam.
+Some of them are written in a strange way, for example
+"Ee msg na poortiyagi odalebeku..." and "Hello-/@drivby-:0quit edrunk sorry...".
+BERT cuts a word it does not know into small pieces,
+so this may help it with strange words.
+This is only a sign, because we have only a few messages.
+
+### 8.4 Size and time
+
+| | Parameters | Size of the weights |
+|---|---|---|
+| LSTM | 242,113 | about 1 MB (945.75 KB) |
+| BERT | 109,483,778 | about 438 MB |
+
+We calculated the size from the number of parameters
+(each one takes 4 bytes). We did not save the models.
+The BERT file that we downloaded is about 440 MB.
+So BERT is about 450 times bigger than the LSTM.
+
+The training of the LSTM took about 11 seconds,
+and the training of BERT took about 3 minutes (both on a GPU).
+Naive Bayes and Logistic Regression are simple models,
+and they do not need a GPU.
+
+### 8.5 Our recommendation
+
+For a telecom company, sending a normal message to the spam box
+is usually worse than letting one spam message pass,
+because a customer can miss an important message.
+So the choice depends on how the company sees the two mistakes.
+
+- If no false alarm is allowed: Naive Bayes.
+  It had 0 false alarms in 901 normal messages. But it missed 11 spam messages.
+- If the company wants the best balance: Logistic Regression.
+  It has the best F1 (96.4), only 3 false alarms and 6 missed spam messages.
+  It is simple, it does not need a GPU, and it can show the weight of each word.
+- The LSTM misses the fewest spam messages (5), but it has the most false alarms (6).
+- BERT is a good model (F1 95.9 and only 2 false alarms),
+  but it is not better than Logistic Regression on our data,
+  and it is much bigger and the training needs a GPU.
+
+We recommend Logistic Regression as the main model for this data.
+If the company cannot accept any false alarm,
+Naive Bayes is a good choice.
+BERT could be worth the cost if the spam becomes harder to find
+(for example, spam written like normal messages) and if there is more data.
+We did not test this.
+
+This recommendation is only for our data and our test set.
+The differences between the models are small (a few messages),
+and we tried more settings for Naive Bayes and Logistic Regression
+(with cross-validation) than for the LSTM and BERT.
+
+## 9. Conclusion
+
+- We cleaned the SMS messages with rules that come from what we saw in the data.
+  Many of our special words (longnumber, url, pence, pounds) became
+  the strongest signs of spam.
+- We built four models: Naive Bayes, Logistic Regression, an LSTM and BERT.
+  All of them were tested on the same 1,026 messages.
+- All four models are very good (accuracy 98.9 to 99.1, F1 95.4 to 96.4),
+  and they are very close to each other.
+- Logistic Regression has the best F1. Naive Bayes has no false alarms.
+  The LSTM misses the fewest spam messages. BERT has few mistakes of both kinds.
+- The most complex models did not win. On this small and simple data,
+  a simple model with good text preparation is as good as BERT.
+- 3 spam messages were missed by all four models. They look like normal messages.
+  These are the hardest messages for every model.
+- Our results can change a little when the notebooks run again,
+  and the test data has only 125 spam messages.
+  So we are careful when we say that one model is better than another.
